@@ -12,22 +12,17 @@ import numpy as np
 class EDA:
     def __init__(
         self, data, label, numeric_features_names,
-        category_features_names, datetime_features_names,
-        scale=True):
+        category_features_names, scale=True):
 
         self.data = data
         self.label = label
         self.numeric_features_names = numeric_features_names
         self.category_features_names = category_features_names
-        self.datetime_features_names = datetime_features_names
         self.scale = scale
-        self.num_plot_per_fig = 4
-        self.scale_alg = None
 
         # Get numeric and category features
         self.numeric_features = self.data[self.numeric_features_names]
         self.category_features = self.data[self.category_features_names]
-        self.datetime_features = self.data[self.datetime_features_names]
 
     def __general_analysis(self):
         numeric_features_count = len(self.numeric_features_names)
@@ -213,7 +208,7 @@ class EDA:
     def __time_series_analysis(self):
         # Overall plot
         overall_fig, overall_ax = plt.subplots()
-        overall_ax.plot(self.datetime_features.iloc[:, 0], self.data[self.label], )
+        overall_ax.plot(self.data[self.label])
         overall_ax.set(
             xlabel='Datetime', ylabel=self.label,
             title=f"Plot of {self.label}")
@@ -229,22 +224,21 @@ class EDA:
 
         # Additive Decomposition
         result_add = seasonal_decompose(
-            self.data[self.label], model='additive', extrapolate_trend='freq',
-            period=12)
+            self.data[self.label], model='additive', extrapolate_trend='freq')
         # Multiplicative Decomposition
         result_mul = seasonal_decompose(
             self.data[self.label], model='multiplicative',
-            extrapolate_trend='freq', period=12)
+            extrapolate_trend='freq')
         # Plot
-        result_add.plot().suptitle('Additive Decompose', fontsize=22)
-        result_mul.plot().suptitle('Multiplicative Decompose', fontsize=22)
+        result_add.plot().suptitle('Additive Decompose')
+        result_mul.plot().suptitle('Multiplicative Decompose')
 
         # acf and pacf plot
-        acf_50 = acf(self.data[self.label], nlags=50)
-        pacf_50 = pacf(self.data[self.label], nlags=50)
+        acf_50 = acf(self.data[self.label], nlags=None)
+        pacf_50 = pacf(self.data[self.label], nlags=None)
         cf_fig, cf_ax = plt.subplots(1, 2)
-        plot_acf(self.data[self.label], lags=50, ax=cf_ax[0])
-        plot_pacf(self.data[self.label], lags=50, ax=cf_ax[1])
+        plot_acf(self.data[self.label], lags=None, ax=cf_ax[0])
+        plot_pacf(self.data[self.label], lags=None, ax=cf_ax[1])
 
         # lag plot
         lag_fig, lag_ax = plt.subplots(1, 4)
@@ -253,13 +247,15 @@ class EDA:
             ax.set_title('Lag ' + str(i+1))
         lag_fig.suptitle(f'Lag Plot of {self.label}')
 
+        return None
+
     def __stationarity_test(self):
         adf_stat, pvalue, _, _, _, _ = adfuller(self.data[self.label])
         logging.info(f'p-value is {pvalue:.4f}')
         if pvalue < 0.05:
-            logging.info('The series is stationary')
+            logging.info('The series has no unit root, it is stationary')
         else:
-            logging.info('The series is not stationary')
+            logging.info('The series has unit root, it is not stationary')
 
         return None
 
@@ -281,20 +277,32 @@ class EDA:
 
     def __granger_causality_test(self, maxlag=12):
         """
-        The Null hypothesis is: the series in the second column, does not Granger cause the series in the first.
+        The Null hypothesis is: the series in the second column,
+        does not Granger cause the series in the first.
+        Grange causality means that past values of x2 have a statistically
+        significant effect on the current value of x1, taking past values
+        of x1 into account as regressors.
         """
         granger_causality_pvalue = dict()
-        for column_name in self.numeric_features_names:
+        suggested_lag = dict()
+        for column_name in self.numeric_features_names + self.category_features_names:
             granger_causality_pvalue[column_name] = grangercausalitytests(
                 self.data[[self.label, column_name]], maxlag=maxlag)
 
-        return granger_causality_pvalue
+            pvalues = []
+            for maxlag_tmp in range(1, maxlag+1):
+                F_stat, pvalue, df_denom, def_num =\
+                    granger_causality_pvalue[column_name][maxlag_tmp][0]['ssr_ftest']
+                pvalues.append(pvalue)
+            suggested_lag[column_name] = np.where(np.array(pvalues) < 0.05)[0][0] + 1
+
+        return suggested_lag
 
     def generate_report(self):
         self.__time_series_analysis()
         p_value = self.__stationarity_test()
         forecastability = self.__get_sample_entropy(
             self.data[self.label], m=2, r=0.2*np.std(self.data[self.label]))
-        granger_causality_pvalue = self.__granger_causality_test(maxlag=12)
+        suggested_lag = self.__granger_causality_test(maxlag=12)
 
         return None
