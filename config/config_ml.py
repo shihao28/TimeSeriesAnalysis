@@ -9,26 +9,48 @@ class ConfigML(object):
         data=dict(
             data_path="data/01_raw/RestaurantVisitors.csv",
             label="total",
+            # Only list the features that are to be used
             numeric_features=[
                 "rest1", "rest2", "rest3", "rest4",
             ],
             category_features=[
-                "weekday", "holiday", "holiday_name"
+                "holiday",
             ],
             datetime_features=dict(
-                # key is column name, value is [datetime format
+                # key is column name, value is datetime format
                 date="%m/%d/%Y",
-                )
+            ),
+            freq="D"
         ),
+
+        # data=dict(
+        #     data_path="data/01_raw/DailyTotalFemaleBirths.csv",
+        #     label="Births",
+        #     numeric_features=[
+
+        #     ],
+        #     category_features=[
+
+        #     ],
+        #     datetime_features=dict(
+        #         # key is column name, value is datetime format
+        #         # strptime documentation
+        #         # https://docs.python.org/3/library/datetime.html
+        #         Date="%m/%d/%Y",
+        #     ),
+        #     freq="D"
+        # ),
 
         train_val_test_split=dict(
             split_ratio=0.3,
         ),
 
-        # model={
-        #     SVC.__name__: SVC(probability=True),
-        #     LogisticRegression.__name__: LogisticRegression()
-        # },
+        model=dict(
+            exog_var=['holiday'],  # Set it to None if no exog_var
+            use_seasonal=True,  # whether to use sarima
+            seasonal_period=7,  # for sarimax
+            # max_exo_var=2,  # -1 means use all
+        ),
 
         # tuning={
         #     "tune": False,
@@ -45,16 +67,16 @@ class ConfigML(object):
         evaluation=dict(
             # Get list of metrics from below
             # https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
-            regression="r2",
+            tsa="r2",
         ),
 
         mlflow=dict(
             tracking_uri="http://127.0.0.1",
             backend_uri="sqlite:///mlflow.db",
             artifact_uri="./mlruns/",
-            experiment_name="Best Pipeline",
+            experiment_name="Best Time Series Pipeline",
             run_name="trial",
-            registered_model_name="my_cls_model",
+            registered_model_name="my_ts_model",
             port="5000",
         ),
 
