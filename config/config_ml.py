@@ -1,4 +1,4 @@
-import pandas as pd
+import numpy as np
 
 
 class ConfigML(object):
@@ -7,48 +7,52 @@ class ConfigML(object):
     train = dict(
 
         data=dict(
-            data_path="data/01_raw/RestaurantVisitors.csv",
-            label="total",
+            data_path="data/03_primary/nearby_prices.csv",
+            label="CBOT.ZS_Settle_nearby",
+
             # Only list the features that are to be used
             numeric_features=[
-                "rest1", "rest2", "rest3", "rest4",
+                'CBOT.ZC_Settle_nearby',
+                'Month_sin', 'Month_cos',
+                'Day_sin', 'Day_cos',
+                'Day_of_week_sin', 'Day_of_week_cos',
+                'Week_no_sin', 'Week_no_cos',
             ],
             category_features=[
-                "holiday",
+                # 'Year',
+                'Month', 
+                'Day',
+                'Day_of_week',
+                'Week_no',
             ],
             datetime_features=dict(
                 # key is column name, value is datetime format
-                date="%m/%d/%Y",
+                # strptime documentation
+                # https://docs.python.org/3/library/datetime.html
+                date="%Y-%m-%d",
             ),
-            freq="D"
+            freq="D",
+            shift_numeric_features={
+                'CBOT.ZC_Settle_nearby': np.arange(60) + 1,
+            },
+            shift_category_features={
+
+            },
         ),
 
-        # data=dict(
-        #     data_path="data/01_raw/DailyTotalFemaleBirths.csv",
-        #     label="Births",
-        #     numeric_features=[
-
-        #     ],
-        #     category_features=[
-
-        #     ],
-        #     datetime_features=dict(
-        #         # key is column name, value is datetime format
-        #         # strptime documentation
-        #         # https://docs.python.org/3/library/datetime.html
-        #         Date="%m/%d/%Y",
-        #     ),
-        #     freq="D"
-        # ),
-
         train_val_test_split=dict(
-            split_ratio=0.3,
+            split_ratio=0.1,
         ),
 
         model=dict(
-            exog_var=['holiday'],  # Set it to None if no exog_var
+            start_p=0, start_q=0,
+            max_p=6, max_q=6,
+            # Set it to empty list if no exog_var
+            exog_var=[
+                'Month_sin', 'Month_cos', 'CBOT.ZC_Settle_nearby_shift1'
+                ],
             use_seasonal=True,  # whether to use sarima
-            seasonal_period=7,  # for sarimax
+            seasonal_period=5,  # for sarimax
             # max_exo_var=2,  # -1 means use all
         ),
 
@@ -76,7 +80,7 @@ class ConfigML(object):
             artifact_uri="./mlruns/",
             experiment_name="Best Time Series Pipeline",
             run_name="trial",
-            registered_model_name="my_ts_model",
+            registered_model_name="my_tsa_model",
             port="5000",
         ),
 
