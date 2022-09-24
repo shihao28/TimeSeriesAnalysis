@@ -26,16 +26,9 @@ logging.basicConfig(
 
 class TrainDL(TrainML):
     def __init__(self, config):
-        # super(TrainDL, self).__init__(config)
-        self.config = config
+        super(TrainDL, self).__init__(config)
         self.device = config["device"]
-        self.data = pd.read_csv(config["data"]["data_path"])
-        self.label = config["data"]["label"]
-        self.numeric_features_names = config["data"]["numeric_features"]
-        self.category_features_names = config["data"]["category_features"]
-        self.datetime_features_names = list(config["data"]["datetime_features"].keys())
         self.model_algs = config["model"]
-        self.split_ratio = config["train_val_test_split"]["split_ratio"]
         self.epochs = config["epochs"]
         self.batch_size = config["batch_size"]
         self.criterion = config["criterion"]
@@ -43,39 +36,44 @@ class TrainDL(TrainML):
         self.lr_scheduler = config["lr_scheduler"]
         self.X_train, self.X_test = None, None
         self.y_train, self.y_test = None, None
+        self.required_numeric_features_names = self.config['model_setting']['exog_var']['numeric']
+        self.required_category_features_names = self.config['model_setting']['exog_var']['category']
+        self.required_features_names = self.required_numeric_features_names + self.required_category_features_names
 
-    def _create_preprocessing_pipeline(self, train_data):
-        # Numeric pipeline
-        if self.label in self.numeric_features_names:
-            self.numeric_features_names.remove(self.label)
-        numeric_pipeline = Pipeline([
-            ("scaler", StandardScaler())
-            ])
+    def _create_preprocessing_pipeline(self):
+        # # Numeric pipeline
+        # # if self.label in self.numeric_features_names:
+        # #     self.numeric_features_names.remove(self.label)
+        # numeric_pipeline = Pipeline([
+        #     ("scaler", StandardScaler())
+        #     ])
 
-        # Category pipeline
-        if self.label in self.category_features_names:
-            self.category_features_names.remove(self.label)
-        category_pipeline = Pipeline([
-            ("encoder", OneHotEncoder(drop="if_binary"))
-            ])
+        # # Category pipeline
+        # # if self.label in self.category_features_names:
+        # #     self.category_features_names.remove(self.label)
+        # # category_pipeline = Pipeline([
+        # #     ("encoder", OneHotEncoder(drop="if_binary"))
+        # #     ])
 
-        # Preprocessing pipeline
-        col_transformer = ColumnTransformer([
-            ("numeric_pipeline", numeric_pipeline, self.numeric_features_names),
-            ("category_pipeline", category_pipeline, self.category_features_names),
-            ])
-        preprocessing_pipeline = Pipeline([
-            ("column_transformer", col_transformer),
-            # ("outlier", CustomTransformer(IsolationForest(contamination=0.1, n_jobs=-1))),
-            ("imputation", KNNImputer(
-                n_neighbors=5,
-                # add_indicator=final_missingness_report.isin(["MCAR/ MNAR"]).any()
-                )),
-            ("feature_eng", FeatureEng(
-                features_names=train_data.columns.drop(self.label))),
-            # ("select_feat", SelectKBest(score_func=f_classif, k=5)),
-            # ("model", SVC()),
-        ])
+        # # Preprocessing pipeline
+        # col_transformer = ColumnTransformer([
+        #     ("numeric_pipeline", numeric_pipeline, self.required_numeric_features_names + [self.label]),
+        #     # ("category_pipeline", category_pipeline, self.category_features_names),
+        #     ])
+        # preprocessing_pipeline = Pipeline([
+        #     ("column_transformer", col_transformer),
+        #     # ("outlier", CustomTransformer(IsolationForest(contamination=0.1, n_jobs=-1))),
+        #     # ("imputation", KNNImputer(
+        #     #     n_neighbors=5,
+        #     #     # add_indicator=final_missingness_report.isin(["MCAR/ MNAR"]).any()
+        #     #     )),
+        #     # ("feature_eng", FeatureEng(
+        #     #     features_names=train_data.columns.drop(self.label))),
+        #     # ("select_feat", SelectKBest(score_func=f_classif, k=5)),
+        #     # ("model", SVC()),
+        # ])
+
+        preprocessing_pipeline = StandardScaler()
 
         return preprocessing_pipeline
 
@@ -84,55 +82,63 @@ class TrainDL(TrainML):
         for i in range(len(sequences)):
             # find the end of this pattern
             end_ix = i + n_steps_in
-            out_end_ix = end_ix + n_steps_out
+            out_end_ix = end_ix + n_steps_out - 1
             # check if we are beyond the dataset
             if out_end_ix > len(sequences):
                 break
             # gather input and output parts of the pattern
-            seq_x, seq_y = sequences[i:end_ix,], sequences[end_ix:out_end_ix, -1]
+            seq_x, seq_y = sequences[i:end_ix, :-1], sequences[end_ix-1:out_end_ix, -1]
             X.append(seq_x)
             y.append(seq_y)
         return np.array(X), np.array(y).squeeze()
 
-    @staticmethod
-    def train_test_split(data, split_ratio):
-        logging.info("Train-test splitting...")
-        test_start_idx = int(len(data) * split_ratio)
-        train_data, test_data = data[:-test_start_idx,], data[-test_start_idx:]
-
-        return train_data, test_data
-
     def _setting_pytorch_utils(self):
         self._preprocessing()
 
-        X, y = self._split_sequences(
-            sequences=self.data[self.config['model_setting']['exog_var'] + [self.label]].values,
-            n_steps_in=self.config['model_setting']['n_steps_in'],
-            n_steps_out=self.config['model_setting']['n_steps_out'])
+        # Get only required column
+        self.data = self.data[self.required_features_names + [self.label]]
 
         # Train-test split
-        self.X_train, self.X_test = self.train_test_split(
-            X, self.split_ratio)
-        self.y_train, self.y_test = self.train_test_split(
-            y, self.split_ratio)
+        test_start_idx, train_data, test_data = self.train_test_split(
+            self.data, self.split_ratio)
 
-        # Create preprocessing and label encoder pipeline
-        # preprocessing_pipeline, label_pipeline =\
-        #     self._create_preprocessing_pipeline(train_data)
-        # preprocessing_pipeline.fit(
-        #     train_data.drop(self.label, axis=1),
-        #     train_data[self.label])
-        # label_pipeline.fit(train_data[self.label])
+        # Create preprocessing pipeline and scale data
+        preprocessing_pipeline = self._create_preprocessing_pipeline()
+        preprocessing_pipeline.fit(
+            train_data[self.required_numeric_features_names + [self.label]]
+        )
+        scaled_train_data = preprocessing_pipeline.transform(
+            train_data[self.required_numeric_features_names + [self.label]]
+            )
+        scaled_train_label = scaled_train_data[:, -1:]
+        scaled_train_data = np.concatenate(
+            [scaled_train_data[:, :-1], train_data[self.required_category_features_names],
+            scaled_train_label], axis=1
+        )
+        scaled_test_data = preprocessing_pipeline.transform(
+            test_data[self.required_numeric_features_names + [self.label]]
+            )
+        scaled_test_label = scaled_test_data[:, -1:]
+        scaled_test_data = np.concatenate(
+            [scaled_test_data[:, :-1], test_data[self.required_category_features_names],
+            scaled_test_label], axis=1
+        )
+        scaled_data = pd.DataFrame(
+            np.concatenate([scaled_train_data, scaled_test_data], 0),
+            columns=self.required_features_names + [self.label] 
+            )
 
-        # Transform dataset
-        # X_train = preprocessing_pipeline.transform(
-        #     train_data.drop(self.label, axis=1))
-        # X_test = preprocessing_pipeline.transform(
-        #     test_data.drop(self.label, axis=1))
-        # y_train = label_pipeline.transform(train_data[self.label])
-        # y_test = label_pipeline.transform(test_data[self.label])
+        X, y = self._split_sequences(
+            sequences=scaled_data.values,
+            n_steps_in=self.config['model_setting']['n_steps_in'],
+            n_steps_out=self.config['model_setting']['n_steps_out'],
+            )
 
-        # Load dataset onto pytorch loader
+        # Train-test split
+        self.X_train, self.X_test = X[:-test_start_idx], X[-test_start_idx:]
+        self.y_train, self.y_test = y[:-test_start_idx], y[-test_start_idx:]
+
+        # Setup pytorch dataloader
         X_train_torch = torch.from_numpy(self.X_train).float()
         X_test_torch = torch.from_numpy(self.X_test).float()
         y_train_torch = torch.from_numpy(self.y_train)
@@ -144,7 +150,7 @@ class TrainDL(TrainML):
                 datasets[type_], batch_size=self.batch_size, shuffle=True,
                 num_workers=8, drop_last=False)
 
-        return dataloaders
+        return preprocessing_pipeline, dataloaders
 
     def _train_one_epoch(
         self, dataloader_train, model,
@@ -166,15 +172,13 @@ class TrainDL(TrainML):
                 optimizer_.step()
 
             train_epoch_loss.update(train_batch_loss, inputs.size(0))
-            # acc1 = accuracy(logits, labels.data)[0]
-            # train_epoch_accuracy.update(acc1.item(), inputs.size(0))
 
         return model, train_epoch_loss.avg
 
-
     def _validate(
         self, dataloader_eval, model, criterion,
-        device, print_tsa_report=False):
+        device, preprocessing_pipeline, print_tsa_report=False,
+        fitted_values=None):
 
         model.eval()
         val_epoch_loss = AverageMeter()
@@ -196,21 +200,43 @@ class TrainDL(TrainML):
         labels_all = torch.cat(labels_all, 0).cpu().numpy()
         forecasts_all = torch.cat(forecasts_all, 0).cpu().numpy()
         if print_tsa_report:
-            y_true = pd.DataFrame(
-                labels_all, index=self.data.index[-len(self.X_test):])
-            y_pred = pd.DataFrame(
-                forecasts_all, index=self.data.index[-len(self.X_test):])
+            # Inverse transform
+            dummy_numeric_inputs = np.zeros(
+                (len(fitted_values), len(self.required_numeric_features_names)))
+
+            numeric_inputs_fitted_values = np.concatenate([
+                dummy_numeric_inputs, fitted_values], axis=1)
+            fitted_values = preprocessing_pipeline.inverse_transform(
+                numeric_inputs_fitted_values)[:, -1:]
+            fitted_values = pd.DataFrame(
+                fitted_values, index=self.data.index[-len(labels_all)-len(fitted_values):-len(labels_all)])
+
+            dummy_numeric_inputs = np.zeros(
+                (len(labels_all), len(self.required_numeric_features_names)))
+
+            numeric_inputs_labels_all = np.concatenate([
+                dummy_numeric_inputs, labels_all[:, np.newaxis]], axis=1)
+            y_true = preprocessing_pipeline.inverse_transform(
+                numeric_inputs_labels_all)[:, -1:]
+            y_true = pd.DataFrame(y_true, index=self.data.index[-len(y_true):])
+
+            numeric_inputs_forecasts_all = np.concatenate([
+                dummy_numeric_inputs, forecasts_all], axis=1)
+            y_pred = preprocessing_pipeline.inverse_transform(
+                numeric_inputs_forecasts_all)[:, -1:]
+            y_pred = pd.DataFrame(y_pred, index=self.data.index[-len(y_pred):])
+
             tsa_report = self.eval(
-                y_true=y_true, y_pred=y_pred)
+                y_true=y_true, y_pred=y_pred, fitted_values=fitted_values)
             logging.info(f"\n{tsa_report}")
 
-        return val_epoch_loss.avg
+        return forecasts_all, val_epoch_loss.avg
 
     def train(self):
-        dataloaders = self._setting_pytorch_utils()
+        preprocessing_pipeline, dataloaders = self._setting_pytorch_utils()
 
         train_assets = dict()
-        best_loss = 1e10
+        best_loss = dict()
         for model_alg_name, model in self.model_algs.items():
             logging.info(f"Training {model_alg_name}...")
 
@@ -223,7 +249,7 @@ class TrainDL(TrainML):
                 optimizer=optimizer_, **self.lr_scheduler["param"])
 
             best_state_dict = copy.deepcopy(model.state_dict())
-            best_accuracy = 0
+            best_model_loss = 1e10
             train_loss, val_loss, lr = [], [], []
             for epoch in range(self.epochs):
 
@@ -238,9 +264,9 @@ class TrainDL(TrainML):
                     f"Loss: {train_epoch_loss:.4f}, ")
 
                 # Eval
-                val_epoch_loss = self._validate(
+                _, val_epoch_loss = self._validate(
                     dataloaders['val'], model, self.criterion,
-                    self.device, False)
+                    self.device, preprocessing_pipeline)
                 val_loss.append(val_epoch_loss.item())
                 logging.info(
                     f"Epoch {epoch:3d}/{self.epochs-1:3d} {'Val':5s}, "
@@ -248,21 +274,24 @@ class TrainDL(TrainML):
 
                 lr.append(lr_scheduler_.get_last_lr()[0])
 
-                if val_epoch_loss < best_loss:
-                    best_loss = val_epoch_loss
+                if val_epoch_loss < best_model_loss:
+                    best_model_loss = val_epoch_loss
                     best_state_dict = copy.deepcopy(model.state_dict())
 
                 lr_scheduler_.step()
 
-            logging.info('Best Val Acc: {:4f}'.format(best_accuracy))
+            logging.info('Best Val Loss: {:4f}'.format(best_model_loss))
 
             # Load best model
             model.load_state_dict(best_state_dict)
 
-            # Classification report
-            val_epoch_loss = self._validate(
+            # TSA report
+            fitted_values, val_epoch_loss = self._validate(
+                dataloaders['train'], model, self.criterion,
+                self.device, preprocessing_pipeline)
+            _, val_epoch_loss = self._validate(
                 dataloaders['val'], model, self.criterion,
-                self.device, True)
+                self.device, preprocessing_pipeline, True, fitted_values)
 
             # Save best model
             torch.save(model.state_dict(), f"{model_alg_name}.pth")
@@ -272,7 +301,9 @@ class TrainDL(TrainML):
                 'Training Loss': train_loss, 'Validation Loss': val_loss,
                 }).to_csv(f"{model_alg_name}.csv", index=False)
 
-            logging.info("Training completed")
+            logging.info(f"Training {model_alg_name} completed")
+
+        best_loss[model_alg_name] = best_model_loss
 
         return None
 
