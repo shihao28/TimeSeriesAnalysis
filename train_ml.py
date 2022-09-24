@@ -30,9 +30,18 @@ class TrainML:
         self.numeric_features_names = config["data"]["numeric_features"]
         self.category_features_names = config["data"]["category_features"]
         self.datetime_features_names = list(config["data"]["datetime_features"].keys())
+        self.shifted_numeric_features_names = []
+        self.shifted_category_features_names = []
         self.split_ratio = config["train_val_test_split"]["split_ratio"]
         self.metrics = config["evaluation"]["tsa"]
         self.train_data, self.test_data = None, None
+        self.diff_train_data = None
+
+    def _encode(self, col, max_val):
+        self.data[col + '_sin'] = np.sin(2*np.pi*self.data[col]/max_val)
+        self.data[col + '_cos'] = np.cos(2*np.pi*self.data[col]/max_val)
+
+        return None
 
     def _preprocessing(self):
         logging.info("Preprocess data...")
@@ -40,22 +49,48 @@ class TrainML:
             self.data[dt_column] = pd.to_datetime(
                 self.data[dt_column], format=dt_format)
 
-        self.data.dropna(axis=0, subset=[self.label], inplace=True)
-
         # self.data['date'].dt.freq
         # self.data['date'].asfreq(self.config['data']['freq'])
+
+        # Insert date for Sat, Sun and public holiday
+        # Forward-Fill
+        date_range = pd.DataFrame(
+            pd.date_range(
+                start=self.data[dt_column][0],
+                end=self.data[dt_column][-1:].squeeze()),
+            columns=[dt_column])
+        self.data = pd.merge(date_range, self.data, 'left', dt_column)
+        self.data.ffill(inplace=True)
 
         self.data.sort_values(
             by=dt_column, axis=0, ascending=True, inplace=True)
 
+        # Create time related features and make it cyclical
         self.data['Year'] = self.data[dt_column].dt.year
         self.data['Month'] = self.data[dt_column].dt.month
         self.data['Day'] = self.data[dt_column].dt.day
         self.data['Day_of_week'] = self.data[dt_column].dt.dayofweek
         self.data['Week_no'] = self.data[dt_column].dt.week
+        self._encode('Month', 12)
+        self._encode('Day', 31)
+        self._encode('Day_of_week', 7)
+        self._encode('Week_no', 52)
 
         # Set datetime column as index
         self.data = self.data.set_index(self.datetime_features_names[0])
+
+        # Add lag features
+        for feature_name, lags in self.config['data']['shift_numeric_features'].items():
+            for lag in lags:
+                new_feature_name = f'{feature_name}_shift{lag}'
+                self.data[new_feature_name] = self.data[feature_name].shift(lag)
+                self.shifted_numeric_features_names.append(new_feature_name)
+        for feature_name, lags in self.config['data']['shift_category_features'].items():
+            for lag in lags:
+                new_feature_name = f'{feature_name}_shift{lag}'
+                self.data[new_feature_name] = self.data[feature_name].shift(lag)
+                self.shifted_category_features_names.append(new_feature_name)
+        self.data.dropna(axis=0, inplace=True)
 
         return None
 
@@ -65,13 +100,15 @@ class TrainML:
         test_start_idx = int(len(data) * split_ratio)
         train_data, test_data = data.iloc[:-test_start_idx,], data.iloc[-test_start_idx:]
 
-        return train_data, test_data
+        return test_start_idx, train_data, test_data
 
     def _eda(self, data):
         logging.info("Generating EDA report...")
-        eda = EDA(
+        self.diff_data = EDA(
             data, self.label, self.numeric_features_names,
-            self.category_features_names).generate_report()
+            self.category_features_names, self.shifted_numeric_features_names,
+            self.shifted_category_features_names
+            ).generate_report()
 
         return None
 
@@ -80,10 +117,12 @@ class TrainML:
 
         return data
 
-    def _select_feat(self, data):
+    def _select_feat(self):
         f_stat_pvalues = FeatureSelect(
-            data, self.label, self.numeric_features_names,
-            self.category_features_names).select_features()
+            self.diff_data, self.label, self.numeric_features_names,
+            self.category_features_names, self.shifted_numeric_features_names,
+            self.shifted_category_features_names
+            ).select_features()
 
         return f_stat_pvalues
 
@@ -109,7 +148,7 @@ class TrainML:
         forecast_ax.set(xlabel='', ylabel=self.label)
         forecast_ax.legend()
 
-        return None
+        return tsa_results, forecast_fig
 
     def _mlflow_logging(self, best_train_assets, train_data):
         logging.info("Logging to mlflow...")
@@ -124,15 +163,16 @@ class TrainML:
         )
         mlflow_logging.activate_mlflow_server()
         mlflow_logging.logging(
-            best_train_assets, train_data, self.label,
-            self.split_ratio, self.tune,
-            self.config["evaluation"]["classification"])
+            best_train_assets,
+            train_data, self.label,
+            self.split_ratio,
+            self.config["evaluation"]["tsa"])
 
     def train(self):
         self._preprocessing()
 
         # Train-test split
-        train_data, test_data = self.train_test_split(
+        _, train_data, test_data = self.train_test_split(
             self.data, self.split_ratio)
 
         # EDA
@@ -142,38 +182,57 @@ class TrainML:
         # self._missing_val_analysis(train_data.copy())
 
         # Select Features
-        self._select_feat(train_data.copy())
+        if len(self.numeric_features_names + self.category_features_names + self.shifted_numeric_features_names + self.shifted_category_features_names) > 0:
+            self._select_feat()
 
         # https://alkaline-ml.com/pmdarima/modules/generated/pmdarima.arima.auto_arima.html
+        try:
+            train_exor_var = train_data[self.config['model']['exog_var']]
+        except Exception:
+            train_exor_var = None
+        train_assets = dict()
         model = auto_arima(
             y=train_data[self.label],
-            X=train_data[self.config['model']['exog_var']],
-            start_p=0, start_q=0,
-            max_p=6, max_q=3, m=self.config['model']['seasonal_period'],
+            X=train_exor_var,
+            start_p=self.config['model']['start_p'],
+            start_q=self.config['model']['start_q'],
+            max_p=self.config['model']['max_p'],
+            max_q=self.config['model']['max_q'],
+            m=self.config['model']['seasonal_period'],
             seasonal=self.config['model']['use_seasonal'],
             d=None, trace=True,
-            error_action='ignore',   # we don't want to know if an order does not work
+            error_action='ignore',  # we don't want to know if an order does not work
             suppress_warnings=True,  # we don't want convergence warnings
-            stepwise=True)           # set to stepwise
-        # model = ARIMA(train_data[self.label],order=(2, 0, 2)).fit()
+            stepwise=True)  # set to stepwise
+        # model = ARIMA(train_data[self.label],order=(2, 1, 2)).fit()
         model.summary()
 
         # Predict
+        try:
+            test_exor_var = test_data[self.config['model']['exog_var']]
+        except Exception:
+            test_exor_var = None
         start = len(train_data)
         end = len(train_data) + len(test_data) - 1
         forecast = model.predict(
             n_periods=len(test_data),
-            start=start, end=end, dynamic=False, typ='levels',
-            X=test_data[self.config['model']['exog_var']]
-            ).rename('Forecast')
+            start=start, end=end, dynamic=False,
+            typ='levels',
+            X=test_exor_var)
+        if forecast.index.is_numeric():
+            forecast.index = test_data.index
 
         # Evaluate
-        self.eval(
+        tsa_assets = self.eval(
             test_data[self.label], forecast,
             model.fittedvalues())
 
+        train_assets['train_pipeline'] = model
+        train_assets['evaluation_assets'] = tsa_assets
+        best_train_assets = train_assets
+
         # logging
-        # self.__mlflow_logging()
+        self._mlflow_logging(best_train_assets, train_data)
 
         return None
 
