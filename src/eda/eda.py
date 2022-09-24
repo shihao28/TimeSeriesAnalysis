@@ -7,22 +7,29 @@ from statsmodels.tsa.stattools import adfuller, acf, pacf, grangercausalitytests
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from pandas.plotting import lag_plot
 import numpy as np
+from scipy.stats import kruskal
 
 
 class EDA:
     def __init__(
         self, data, label, numeric_features_names,
-        category_features_names, scale=True):
+        category_features_names, shifted_numeric_features_names,
+        shifted_category_features_names,
+        scale=True):
 
         self.data = data
         self.label = label
         self.numeric_features_names = numeric_features_names
         self.category_features_names = category_features_names
+        self.shifted_numeric_features_names = shifted_numeric_features_names
+        self.shifted_category_features_names = shifted_category_features_names
         self.scale = scale
 
         # Get numeric and category features
         self.numeric_features = self.data[self.numeric_features_names]
         self.category_features = self.data[self.category_features_names]
+        self.shifted_numeric_features = self.data[self.shifted_numeric_features_names]
+        self.shifted_category_features = self.data[self.shifted_category_features_names]
 
     def __general_analysis(self):
         numeric_features_count = len(self.numeric_features_names)
@@ -205,7 +212,7 @@ class EDA:
                     pp.savefig(fig)
         pp.close()
 
-    def __time_series_analysis(self):
+    def _time_series_analysis(self):
         # Overall plot
         overall_fig, overall_ax = plt.subplots()
         overall_ax.plot(self.data[self.label])
@@ -223,22 +230,15 @@ class EDA:
             ax=yearwise_ax[1])
 
         # Additive Decomposition
-        result_add = seasonal_decompose(
-            self.data[self.label], model='additive', extrapolate_trend='freq')
-        # Multiplicative Decomposition
-        result_mul = seasonal_decompose(
-            self.data[self.label], model='multiplicative',
-            extrapolate_trend='freq')
-        # Plot
-        result_add.plot().suptitle('Additive Decompose')
-        result_mul.plot().suptitle('Multiplicative Decompose')
-
-        # acf and pacf plot
-        acf_50 = acf(self.data[self.label], nlags=None)
-        pacf_50 = pacf(self.data[self.label], nlags=None)
-        cf_fig, cf_ax = plt.subplots(1, 2)
-        plot_acf(self.data[self.label], lags=None, ax=cf_ax[0])
-        plot_pacf(self.data[self.label], lags=None, ax=cf_ax[1])
+        # result_add = seasonal_decompose(
+        #     self.data[self.label], model='additive', extrapolate_trend='freq')
+        # # Multiplicative Decomposition
+        # result_mul = seasonal_decompose(
+        #     self.data[self.label], model='multiplicative',
+        #     extrapolate_trend='freq')
+        # # Plot
+        # result_add.plot().suptitle('Additive Decompose')
+        # result_mul.plot().suptitle('Multiplicative Decompose')
 
         # lag plot
         lag_fig, lag_ax = plt.subplots(1, 4)
@@ -249,17 +249,38 @@ class EDA:
 
         return None
 
-    def __stationarity_test(self):
-        adf_stat, pvalue, _, _, _, _ = adfuller(self.data[self.label])
-        logging.info(f'p-value is {pvalue:.4f}')
-        if pvalue < 0.05:
-            logging.info('The series has no unit root, it is stationary')
-        else:
-            logging.info('The series has unit root, it is not stationary')
+    def _get_arima_order(self):
+        # Get d
+        diff_data = self.data[self.label].copy()
+        diff_pvalues = dict()
+        lag = 0
+        while True:
+            adf_stat, pvalue, _, _, _, _ = adfuller(diff_data)
+            diff_pvalues[lag] = pvalue
+            if pvalue < 0.05:
+                logging.info('The series has no unit root, it is stationary')
+                logging.info(f'After {lag} differencing, p-value is {pvalue:.4f}')
+                break
+            else:
+                logging.info('The series has unit root, it is not stationary')
+                logging.info(f'After {lag} differencing, p-value is {pvalue:.4f}')
+            diff_data = diff_data.diff().dropna()
+            lag += 1
+        diff_fig, diff_ax = plt.subplots()
+        diff_ax.plot(diff_data)
+        diff_ax.set(title=f'Series after {lag} differecing')
 
-        return None
+        # Get p and q
+        # acf and pacf plot
+        acf_50 = acf(diff_data, nlags=None)
+        pacf_50 = pacf(diff_data, nlags=None)
+        cf_fig, cf_ax = plt.subplots(1, 2)
+        plot_acf(diff_data, lags=None, ax=cf_ax[0], title=f'd={lag}')
+        plot_pacf(diff_data, lags=None, ax=cf_ax[1], title=f'd={lag}')
 
-    def __get_sample_entropy(self, U, m, r):
+        return diff_data
+
+    def _get_sample_entropy(self, U, m, r):
         # https://en.wikipedia.org/wiki/Sample_entropy
         def _maxdist(x_i, x_j):
             return max([abs(ua - va) for ua, va in zip(x_i, x_j)])
@@ -275,7 +296,7 @@ class EDA:
 
         return forecastability
 
-    def __granger_causality_test(self, maxlag=12):
+    def _granger_causality_test(self, diff_data, maxlag=12):
         """
         The Null hypothesis is: the series in the second column,
         does not Granger cause the series in the first.
@@ -287,22 +308,61 @@ class EDA:
         suggested_lag = dict()
         for column_name in self.numeric_features_names + self.category_features_names:
             granger_causality_pvalue[column_name] = grangercausalitytests(
-                self.data[[self.label, column_name]], maxlag=maxlag)
+                diff_data[[self.label, column_name]], maxlag=maxlag)
 
             pvalues = []
             for maxlag_tmp in range(1, maxlag+1):
                 F_stat, pvalue, df_denom, def_num =\
                     granger_causality_pvalue[column_name][maxlag_tmp][0]['ssr_ftest']
                 pvalues.append(pvalue)
-            suggested_lag[column_name] = np.where(np.array(pvalues) < 0.05)[0][0] + 1
+            suggested_lag[column_name] = -1
+            if len(np.where(np.array(pvalues) < 0.05)[0]) > 0:
+                suggested_lag[column_name] = np.where(np.array(pvalues) < 0.05)[0][0] + 1
 
         return suggested_lag
 
-    def generate_report(self):
-        self.__time_series_analysis()
-        p_value = self.__stationarity_test()
-        forecastability = self.__get_sample_entropy(
-            self.data[self.label], m=2, r=0.2*np.std(self.data[self.label]))
-        suggested_lag = self.__granger_causality_test(maxlag=12)
+    def _seasonality_test(self, diff_data):
+        """
+        https://knk00.medium.com/how-to-determine-seasonality-without-plots-f18cee913b95
+        Null Hypothesis: The series is not seasonal
 
-        return None
+        """
+        max_val = dict(
+            Month=12,
+            Day=31,
+            Day_of_week=7,
+            Week_no=52
+        )
+        pvalues = dict()
+        for key, val in max_val.items():
+            idx = np.arange(len(diff_data)) % val
+            H_statistic, p_value = kruskal(diff_data, idx)
+            pvalues[key] = 'Non-seasonal'
+            if p_value <= 0.05:
+                pvalues[key] = 'Seasonal'
+        return pvalues
+
+    def generate_report(self):
+        # Generate plot
+        self._time_series_analysis()
+
+        # Return diff_data that contains only label column
+        diff_data_label_only = self._get_arima_order()
+
+        # Add feature columns to diff data
+        diff_data = self.data.copy()
+        diff_data[self.label] = diff_data_label_only
+        diff_data.dropna(axis=0, inplace=True)
+
+        # Calculate sample entropy
+        # use diff_data?
+        forecastability = self._get_sample_entropy(
+            self.data[self.label], m=2, r=0.2*np.std(self.data[self.label]))
+
+        # Calculate granger causality
+        suggested_lag = self._granger_causality_test(diff_data, maxlag=10)
+
+        # Seasonality Test
+        self._seasonality_test(diff_data[self.label])
+
+        return diff_data
