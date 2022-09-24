@@ -48,31 +48,27 @@ class MlflowLogging:
                 logging.warning(f'Tracking server {os.getenv("MLFLOW_TRACKING_URI")} is not up and running')
                 time.sleep(1)
 
-    def logging(self, best_train_assets, train_data, label, split_ratio, tune, eval_metrics):
+    def logging(self, best_train_assets, train_data, label, split_ratio, eval_metrics):
         # check f1 score with cls report
         best_train_pipeline = best_train_assets.get("train_pipeline")
-        best_evaluation_results = best_train_assets.get("evaluation_results")
-        best_cls_report = self.__get_mlflow_cls_report(best_evaluation_results)
-        best_threshold = best_train_assets.get("best_threshold")
+        best_tsa_report, forecast_fig = best_train_assets.get("evaluation_assets")
 
         mlflow.set_experiment(self.experiment_name)
         with mlflow.start_run(run_name=self.run_name):
             mlflow.log_param('target_variable', label)
             mlflow.log_param('split_ratio', split_ratio)
-            mlflow.log_param('tune', tune)
             mlflow.log_param('eval_metrics', eval_metrics)
 
-            mlflow.log_metrics(best_cls_report)
-            if best_threshold is not None:
-                mlflow.log_metrics("best_threshold", best_threshold)
+            mlflow.log_metrics(best_tsa_report)
 
-            signature = infer_signature(
-                train_data,
-                pd.DataFrame({label: best_train_pipeline.predict(
-                    train_data.drop(label, axis=1))}))
+            # signature = infer_signature(
+            #     train_data,
+            #     pd.DataFrame({label: best_train_pipeline.predict(
+            #         train_data.drop(label, axis=1))}))
             mlflow.sklearn.log_model(
                 sk_model=best_train_pipeline, artifact_path="sk_models",
-                signature=signature, input_example=train_data.sample(5),
+                # signature=signature,
+                input_example=train_data.sample(5),
                 registered_model_name=self.registered_model_name
                 )
 
@@ -81,11 +77,7 @@ class MlflowLogging:
             artifact_folder.mkdir(parents=True, exist_ok=True)
 
             # Storing only figures, pd.DataFrames are excluded
-            conf_matrix_fig = best_evaluation_results.get("conf_matrix_fig")
-            conf_matrix_fig.savefig(Path(artifact_folder, "conf_matrix.png"))
-            fig_all = best_evaluation_results.get("fig")
-            for class_label, fig in fig_all.items():
-               fig.savefig(Path(artifact_folder, f"fig_{class_label}.png"))
+            forecast_fig.savefig(Path(artifact_folder, "forecast.png"))
             mlflow.log_artifacts(
                 artifact_folder, artifact_path="evaluation_artifacts")
             shutil.rmtree(artifact_folder)
