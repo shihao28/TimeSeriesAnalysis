@@ -228,7 +228,6 @@ class TrainDL(TrainML):
 
             tsa_report = self.eval(
                 y_true=y_true, y_pred=y_pred, fitted_values=fitted_values)
-            logging.info(f"\n{tsa_report}")
 
         return forecasts_all, val_epoch_loss.avg
 
