@@ -16,7 +16,11 @@ class RNN(nn.Module):
             input_size=in_dim, hidden_size=hidden_dim,
             num_layers=num_layers, batch_first=True,
         )
-        self.conv = nn.Conv1d(hidden_dim, hidden_dim, 1, 1)
+        self.conv = nn.Sequential(
+            nn.Conv1d(hidden_dim, hidden_dim, 1, 1),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU()
+        )
         self.avg_pool = nn.AdaptiveAvgPool1d(1)
         self.fc = nn.Linear(hidden_dim, n_out)
 
@@ -24,6 +28,7 @@ class RNN(nn.Module):
         x = self.ln(x)
         output, (hidden_state, cell_state) = self.lstm(x)
         output = output.transpose(1, 2)
+        output = nn.ReLU()(output)
         x = self.conv(output)
         x = self.avg_pool(x).flatten(1)
         logits = self.fc(x)
