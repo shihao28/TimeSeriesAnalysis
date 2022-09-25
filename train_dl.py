@@ -289,7 +289,7 @@ class TrainDL(TrainML):
             train_data, self.label,
             self.split_ratio,
             self.config["evaluation"]["tsa"],
-            exor_var=self.required_features_names)
+            exog_var=self.required_features_names)
 
         return None
 
