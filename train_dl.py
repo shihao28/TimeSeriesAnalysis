@@ -39,6 +39,7 @@ class TrainDL(TrainML):
         self.required_numeric_features_names = self.config['model_setting']['exog_var']['numeric']
         self.required_category_features_names = self.config['model_setting']['exog_var']['category']
         self.required_features_names = self.required_numeric_features_names + self.required_category_features_names
+        self.scale = self.config['model_setting']['scale']
 
     def _create_preprocessing_pipeline(self):
         # # Numeric pipeline
@@ -103,36 +104,50 @@ class TrainDL(TrainML):
             self.data, self.split_ratio)
 
         # Create preprocessing pipeline and scale data
-        preprocessing_pipeline = self._create_preprocessing_pipeline()
-        preprocessing_pipeline.fit(
-            train_data[self.required_numeric_features_names + [self.label]]
-        )
-        scaled_train_data = preprocessing_pipeline.transform(
-            train_data[self.required_numeric_features_names + [self.label]]
+        if self.scale:
+            preprocessing_pipeline = self._create_preprocessing_pipeline()
+            preprocessing_pipeline.fit(
+                train_data[self.required_numeric_features_names + [self.label]]
             )
-        scaled_train_label = scaled_train_data[:, -1:]
-        scaled_train_data = np.concatenate(
-            [scaled_train_data[:, :-1], train_data[self.required_category_features_names],
-            scaled_train_label], axis=1
-        )
-        scaled_test_data = preprocessing_pipeline.transform(
-            test_data[self.required_numeric_features_names + [self.label]]
+            scaled_train_data = preprocessing_pipeline.transform(
+                train_data[self.required_numeric_features_names + [self.label]]
+                )
+            scaled_train_label = scaled_train_data[:, -1:]
+            scaled_train_data = np.concatenate(
+                [
+                    scaled_train_data[:, :-1],
+                    train_data[self.required_category_features_names],
+                    scaled_train_label], axis=1
             )
-        scaled_test_label = scaled_test_data[:, -1:]
-        scaled_test_data = np.concatenate(
-            [scaled_test_data[:, :-1], test_data[self.required_category_features_names],
-            scaled_test_label], axis=1
-        )
-        scaled_data = pd.DataFrame(
-            np.concatenate([scaled_train_data, scaled_test_data], 0),
-            columns=self.required_features_names + [self.label] 
+            scaled_test_data = preprocessing_pipeline.transform(
+                test_data[self.required_numeric_features_names + [self.label]]
+                )
+            scaled_test_label = scaled_test_data[:, -1:]
+            scaled_test_data = np.concatenate(
+                [
+                    scaled_test_data[:, :-1],
+                    test_data[self.required_category_features_names],
+                    scaled_test_label], axis=1
             )
+            scaled_data = pd.DataFrame(
+                np.concatenate([scaled_train_data, scaled_test_data], 0),
+                columns=self.required_features_names + [self.label] 
+                )
+        else:
+            preprocessing_pipeline = None
+            scaled_data = pd.DataFrame(
+                np.concatenate([train_data, test_data], 0),
+                columns=self.required_features_names + [self.label] 
+                )
 
         X, y = self._split_sequences(
             sequences=scaled_data.values,
             n_steps_in=self.config['model_setting']['n_steps_in'],
             n_steps_out=self.config['model_setting']['n_steps_out'],
             )
+
+        # Append truth value row index for easier data tracking
+        y = np.concatenate([y, np.arange(len(self.data))[-len(y):][:, np.newaxis]], axis=1)
 
         # Train-test split
         self.X_train, self.X_test = X[:-test_start_idx], X[-test_start_idx:]
@@ -147,7 +162,8 @@ class TrainDL(TrainML):
         for type_, X, y in zip(["train", "val"], [X_train_torch, X_test_torch], [y_train_torch, y_test_torch]):
             datasets[type_] = torch.utils.data.TensorDataset(X, y)
             dataloaders[type_] = torch.utils.data.DataLoader(
-                datasets[type_], batch_size=self.batch_size, shuffle=True,
+                datasets[type_], batch_size=self.batch_size,
+                shuffle=True if type_ == 'train' else False,
                 num_workers=8, drop_last=False)
 
         return preprocessing_pipeline, dataloaders
@@ -166,7 +182,8 @@ class TrainDL(TrainML):
 
             with torch.set_grad_enabled(True):
                 logits = model(inputs)
-                train_batch_loss = criterion(logits.squeeze(), labels.float())
+                train_batch_loss = criterion(
+                    logits.squeeze(), labels.float()[..., :-1])
 
                 train_batch_loss.backward()
                 optimizer_.step()
@@ -190,7 +207,8 @@ class TrainDL(TrainML):
 
             with torch.set_grad_enabled(False):
                 logits = model(inputs)
-                val_batch_loss = criterion(logits.squeeze(), labels.float())
+                val_batch_loss = criterion(
+                    logits.squeeze(), labels.float()[..., :-1])
 
             labels_all.append(labels)
             forecasts_all.append(logits)
@@ -199,37 +217,55 @@ class TrainDL(TrainML):
 
         labels_all = torch.cat(labels_all, 0).cpu().numpy()
         forecasts_all = torch.cat(forecasts_all, 0).cpu().numpy()
+        # Append truth value index
+        forecasts_all = np.concatenate(
+            [forecasts_all, labels_all[:, -1:]], axis=1
+        )
         if print_tsa_report:
-            # Inverse transform
-            dummy_numeric_inputs = np.zeros(
-                (len(fitted_values), len(self.required_numeric_features_names)))
-
-            numeric_inputs_fitted_values = np.concatenate([
-                dummy_numeric_inputs, fitted_values], axis=1)
-            fitted_values = preprocessing_pipeline.inverse_transform(
-                numeric_inputs_fitted_values)[:, -1:]
-            fitted_values = pd.DataFrame(
-                fitted_values, index=self.data.index[-len(labels_all)-len(fitted_values):-len(labels_all)])
-
-            dummy_numeric_inputs = np.zeros(
-                (len(labels_all), len(self.required_numeric_features_names)))
-
-            numeric_inputs_labels_all = np.concatenate([
-                dummy_numeric_inputs, labels_all[:, np.newaxis]], axis=1)
-            y_true = preprocessing_pipeline.inverse_transform(
-                numeric_inputs_labels_all)[:, -1:]
-            y_true = pd.DataFrame(y_true, index=self.data.index[-len(y_true):])
-
-            numeric_inputs_forecasts_all = np.concatenate([
-                dummy_numeric_inputs, forecasts_all], axis=1)
-            y_pred = preprocessing_pipeline.inverse_transform(
-                numeric_inputs_forecasts_all)[:, -1:]
-            y_pred = pd.DataFrame(y_pred, index=self.data.index[-len(y_pred):])
-
+            fitted_values = self._inversetransform_meanagg(
+                fitted_values, preprocessing_pipeline)
+            y_true = self._inversetransform_meanagg(
+                labels_all, preprocessing_pipeline)
+            y_pred = self._inversetransform_meanagg(
+                forecasts_all, preprocessing_pipeline)
             tsa_report = self.eval(
                 y_true=y_true, y_pred=y_pred, fitted_values=fitted_values)
 
         return forecasts_all, val_epoch_loss.avg
+
+    def _inversetransform_meanagg(self, fitted_values, preprocessing_pipeline):
+        if self.scale:
+            # Create dummy input
+            dummy_numeric_inputs = np.zeros(
+                (len(fitted_values), len(self.required_numeric_features_names)))
+
+            # Inverse transform fitted values
+            fitted_values_new = []
+            # Not inverse tranforming last column
+            # Last column in truth value index
+            for i in range(fitted_values.shape[1]-1):
+                numeric_inputs_fitted_values = np.concatenate([
+                    dummy_numeric_inputs, fitted_values[:, i:i+1]], axis=1)
+                fitted_values_tmp = preprocessing_pipeline.inverse_transform(
+                    numeric_inputs_fitted_values)[:, -1:]
+                fitted_values_new.append(fitted_values_tmp)
+            # Append truth value index
+            fitted_values_new.append(fitted_values[:, -1:])
+            fitted_values = np.concatenate(fitted_values_new, 1)
+
+        # Mean Aggregation by date
+        fitted_values_new = pd.DataFrame()
+        for i in range(len(fitted_values)):
+            fitted_values_tmp = pd.DataFrame(fitted_values[i, :-1])
+            fitted_values_tmp['date'] = pd.date_range(
+                    start=self.data.index[
+                        int(fitted_values[i,-1])-self.config['model_setting']['n_steps_out']+1],
+                    end=self.data.index[int(fitted_values[i,-1])]
+                )
+            fitted_values_new = pd.concat([fitted_values_new, fitted_values_tmp], 0)
+        fitted_values = fitted_values_new.groupby('date').agg('mean')
+
+        return fitted_values
 
     def train(self):
         preprocessing_pipeline, dataloaders = self._setting_pytorch_utils()
