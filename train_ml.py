@@ -102,7 +102,6 @@ class TrainML:
         # self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].rolling(14).mean()
         self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].ewm(span=14, adjust=True).mean()
 
-        self.data['CBOT.ZS_Settle_nearby'].rolling(14).mean()
         return None
 
     @staticmethod
