@@ -16,7 +16,7 @@ class ConfigDL(object):
             data_path="data/03_primary/nearby_prices.csv",
             label="CBOT.ZS_Settle_nearby",
 
-            # Only list the features that are to be used
+            # Only list the features that are to be used for eda
             numeric_features=[
                 'CBOT.ZC_Settle_nearby',
                 'Month_sin', 'Month_cos',
@@ -44,6 +44,9 @@ class ConfigDL(object):
             shift_category_features={
 
             },
+
+            # insert missing date and ffill it
+            ffill_missing_date=False
         ),
 
         train_val_test_split=dict(
@@ -52,7 +55,8 @@ class ConfigDL(object):
 
         model={
             # n_out in model =n_steps_out
-            RNN.__name__: RNN(4, 64, 30, 10),
+            RNN.__name__: RNN(
+                in_dim=32, hidden_dim=128, num_layers=1, n_out=10),
         },
 
         model_setting=dict(
@@ -63,20 +67,36 @@ class ConfigDL(object):
             # Set it to empty list if no exog_var
             exog_var=dict(
                 numeric=[
+                    # 'Week_no_sin', 'Week_no_cos',
                     'Month_sin', 'Month_cos',
-                    'CBOT.ZC_Settle_nearby_shift1'
+                    'CBOT.ZC_Settle_nearby_shift1', 
+                    'CBOT.ZC_Settle_nearby_shift2',
+                    'CBOT.ZC_Settle_nearby_shift3', 'CBOT.ZC_Settle_nearby_shift4',
+                    'CBOT.ZC_Settle_nearby_shift5', 'CBOT.ZC_Settle_nearby_shift6',
+                    'CBOT.ZC_Settle_nearby_shift7', 'CBOT.ZC_Settle_nearby_shift8',
+                    'CBOT.ZC_Settle_nearby_shift9', 'CBOT.ZC_Settle_nearby_shift10',
+                    'CBOT.ZC_Settle_nearby_shift11', 'CBOT.ZC_Settle_nearby_shift12',
+                    'CBOT.ZC_Settle_nearby_shift13', 'CBOT.ZC_Settle_nearby_shift14',
+                    'CBOT.ZC_Settle_nearby_shift15', 'CBOT.ZC_Settle_nearby_shift16',
+                    'CBOT.ZC_Settle_nearby_shift17', 'CBOT.ZC_Settle_nearby_shift18',
+                    'CBOT.ZC_Settle_nearby_shift19', 'CBOT.ZC_Settle_nearby_shift20',
+                    'CBOT.ZC_Settle_nearby_shift21', 'CBOT.ZC_Settle_nearby_shift22',
+                    'CBOT.ZC_Settle_nearby_shift23', 'CBOT.ZC_Settle_nearby_shift24',
+                    'CBOT.ZC_Settle_nearby_shift25', 'CBOT.ZC_Settle_nearby_shift26',
+                    'CBOT.ZC_Settle_nearby_shift27', 'CBOT.ZC_Settle_nearby_shift28',
+                    'CBOT.ZC_Settle_nearby_shift29', 'CBOT.ZC_Settle_nearby_shift30',
                 ],
                 category=[
-                    'Month'
+                    # 'Month'
                 ]
             ),
         ),
 
         criterion=nn.MSELoss(),
 
-        epochs=1,
+        epochs=50,
 
-        batch_size=32,
+        batch_size=64,
 
         optimizer=dict(
             alg=optim.SGD,

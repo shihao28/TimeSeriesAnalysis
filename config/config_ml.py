@@ -38,6 +38,9 @@ class ConfigML(object):
             shift_category_features={
 
             },
+
+            # insert missing date and ffill it
+            ffill_missing_date=True
         ),
 
         train_val_test_split=dict(

@@ -54,13 +54,14 @@ class TrainML:
 
         # Insert date for Sat, Sun and public holiday
         # Forward-Fill
-        date_range = pd.DataFrame(
-            pd.date_range(
-                start=self.data[dt_column][0],
-                end=self.data[dt_column][-1:].squeeze()),
-            columns=[dt_column])
-        self.data = pd.merge(date_range, self.data, 'left', dt_column)
-        self.data.ffill(inplace=True)
+        if self.config['data']['ffill_missing_date']:
+            date_range = pd.DataFrame(
+                pd.date_range(
+                    start=self.data[dt_column][0],
+                    end=self.data[dt_column][-1:].squeeze()),
+                columns=[dt_column])
+            self.data = pd.merge(date_range, self.data, 'left', dt_column)
+            self.data.ffill(inplace=True)
 
         self.data.sort_values(
             by=dt_column, axis=0, ascending=True, inplace=True)
@@ -91,6 +92,13 @@ class TrainML:
                 self.data[new_feature_name] = self.data[feature_name].shift(lag)
                 self.shifted_category_features_names.append(new_feature_name)
         self.data.dropna(axis=0, inplace=True)
+
+        # Add plantation phase
+        self.data[['Plantation', 'Pollination', 'Harvest']] = 0
+        self.data.loc[(self.data['Month'] >= 3) & (self.data['Month'] <= 5), 'Plantation'] = 1
+        self.data.loc[(self.data['Month'] >= 6) & (self.data['Month'] <= 7), 'Pollination'] = 1
+        self.data.loc[(self.data['Month'] >= 9) & (self.data['Month'] <= 10), 'Harvest'] = 1
+        
 
         return None
 
