@@ -48,6 +48,8 @@ class MlflowLogging:
                 logging.warning(f'Tracking server {os.getenv("MLFLOW_TRACKING_URI")} is not up and running')
                 time.sleep(1)
 
+        return None
+
     def logging(self, best_train_assets, train_data, label, split_ratio, eval_metrics):
         # check f1 score with cls report
         best_train_pipeline = best_train_assets.get("train_pipeline")
@@ -81,3 +83,41 @@ class MlflowLogging:
             mlflow.log_artifacts(
                 artifact_folder, artifact_path="evaluation_artifacts")
             shutil.rmtree(artifact_folder)
+
+        return None
+
+    def logging_dl(self, best_train_assets, train_data, label, split_ratio, eval_metrics):
+        # check f1 score with cls report
+        best_train_pipeline = best_train_assets.get("train_pipeline")
+        best_tsa_report, forecast_fig = best_train_assets.get("evaluation_assets")
+
+        mlflow.set_experiment(self.experiment_name)
+        with mlflow.start_run(run_name=self.run_name):
+            mlflow.log_param('target_variable', label)
+            mlflow.log_param('split_ratio', split_ratio)
+            mlflow.log_param('eval_metrics', eval_metrics)
+
+            mlflow.log_metrics(best_tsa_report)
+
+            # signature = infer_signature(
+            #     train_data,
+            #     pd.DataFrame({label: best_train_pipeline.predict(
+            #         train_data.drop(label, axis=1))}))
+            mlflow.pytorch.log_model(
+                pytorch_model=best_train_pipeline, artifact_path="pytorch_models",
+                # signature=signature,
+                input_example=train_data.sample(5) if train_data is not None else None,
+                registered_model_name=self.registered_model_name,
+                )
+
+            # Store plots as artifacts
+            artifact_folder = Path("mlflow_tmp")
+            artifact_folder.mkdir(parents=True, exist_ok=True)
+
+            # Storing only figures, pd.DataFrames are excluded
+            forecast_fig.savefig(Path(artifact_folder, "forecast.png"))
+            mlflow.log_artifacts(
+                artifact_folder, artifact_path="evaluation_artifacts")
+            shutil.rmtree(artifact_folder)
+
+        return None

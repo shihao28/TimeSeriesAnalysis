@@ -14,7 +14,8 @@ from sklearn.metrics import *
 
 from config import ConfigDL
 from train_ml import TrainML
-from src.utils import AverageMeter, accuracy
+from src.utils import AverageMeter
+from src.mlflow_logging import MlflowLogging
 
 
 # Set log level
@@ -221,6 +222,8 @@ class TrainDL(TrainML):
         forecasts_all = np.concatenate(
             [forecasts_all, labels_all[:, -1:]], axis=1
         )
+
+        tsa_report = None
         if print_tsa_report:
             fitted_values = self._inversetransform_meanagg(
                 fitted_values, preprocessing_pipeline)
@@ -231,7 +234,7 @@ class TrainDL(TrainML):
             tsa_report = self.eval(
                 y_true=y_true, y_pred=y_pred, fitted_values=fitted_values)
             tsa_report[1].savefig('haha.jpg')
-        return forecasts_all, val_epoch_loss.avg
+        return forecasts_all, val_epoch_loss.avg, tsa_report
 
     def _inversetransform_meanagg(self, fitted_values, preprocessing_pipeline):
         if self.scale:
@@ -269,11 +272,31 @@ class TrainDL(TrainML):
 
         return fitted_values
 
+    def _mlflow_logging(self, best_train_assets, train_data=None):
+        logging.info("Logging to mlflow...")
+        mlflow_logging = MlflowLogging(
+            tracking_uri=self.config["mlflow"]["tracking_uri"],
+            backend_uri=self.config["mlflow"]["backend_uri"],
+            artifact_uri=self.config["mlflow"]["artifact_uri"],
+            mlflow_port=self.config["mlflow"]["port"],
+            experiment_name=self.config["mlflow"]["experiment_name"],
+            run_name=self.config["mlflow"]["run_name"],
+            registered_model_name=self.config["mlflow"]["registered_model_name"]
+        )
+        mlflow_logging.activate_mlflow_server()
+        mlflow_logging.logging_dl(
+            best_train_assets,
+            train_data, self.label,
+            self.split_ratio,
+            self.config["evaluation"]["tsa"])
+
+        return None
+
     def train(self):
         preprocessing_pipeline, dataloaders = self._setting_pytorch_utils()
 
         train_assets = dict()
-        best_loss = dict()
+        overall_loss = dict()
         for model_alg_name, model in self.model_algs.items():
             logging.info(f"Training {model_alg_name}...")
 
@@ -301,7 +324,7 @@ class TrainDL(TrainML):
                     f"Loss: {train_epoch_loss:.4f}, ")
 
                 # Eval
-                _, val_epoch_loss = self._validate(
+                _, val_epoch_loss, _ = self._validate(
                     dataloaders['val'], model, self.criterion,
                     self.device, preprocessing_pipeline)
                 val_loss.append(val_epoch_loss.item())
@@ -323,10 +346,10 @@ class TrainDL(TrainML):
             model.load_state_dict(best_state_dict)
 
             # TSA report
-            fitted_values, val_epoch_loss = self._validate(
+            fitted_values, val_epoch_loss, _ = self._validate(
                 dataloaders['train'], model, self.criterion,
                 self.device, preprocessing_pipeline)
-            _, val_epoch_loss = self._validate(
+            _, val_epoch_loss, tsa_report = self._validate(
                 dataloaders['val'], model, self.criterion,
                 self.device, preprocessing_pipeline, True, fitted_values)
 
@@ -340,7 +363,21 @@ class TrainDL(TrainML):
 
             logging.info(f"Training {model_alg_name} completed")
 
-        best_loss[model_alg_name] = best_model_loss
+            train_assets[model_alg_name] = {
+                "train_pipeline": model,
+                "evaluation_assets": tsa_report
+            }
+            overall_loss[model_alg_name] = best_model_loss
+
+        # Get best model
+        overall_loss = dict(sorted(overall_loss.items(), key=lambda item: item[1]))
+        best_model = list(overall_loss.keys())[0]
+        best_train_assets = train_assets[best_model]
+        best_loss = overall_loss[best_model]
+        logging.info(f'Best Model: {best_model} with loss {best_loss}')
+
+        self._mlflow_logging(
+            best_train_assets=best_train_assets, train_data=None)
 
         return None
 
