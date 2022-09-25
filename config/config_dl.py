@@ -56,7 +56,7 @@ class ConfigDL(object):
         model={
             # n_out in model =n_steps_out
             RNN.__name__: RNN(
-                in_dim=5, hidden_dim=64, num_layers=1, n_out=10),
+                in_dim=32, hidden_dim=64, num_layers=1, n_out=10),
         },
 
         model_setting=dict(
@@ -69,21 +69,21 @@ class ConfigDL(object):
                 numeric=[
                     # 'Week_no_sin', 'Week_no_cos',
                     'Month_sin', 'Month_cos',
-                    # 'CBOT.ZC_Settle_nearby_shift1', 'CBOT.ZC_Settle_nearby_shift2',
-                    # 'CBOT.ZC_Settle_nearby_shift3', 'CBOT.ZC_Settle_nearby_shift4',
-                    # 'CBOT.ZC_Settle_nearby_shift5', 'CBOT.ZC_Settle_nearby_shift6',
-                    # 'CBOT.ZC_Settle_nearby_shift7', 'CBOT.ZC_Settle_nearby_shift8',
-                    # 'CBOT.ZC_Settle_nearby_shift9', 'CBOT.ZC_Settle_nearby_shift10',
-                    # 'CBOT.ZC_Settle_nearby_shift11', 'CBOT.ZC_Settle_nearby_shift12',
-                    # 'CBOT.ZC_Settle_nearby_shift13', 'CBOT.ZC_Settle_nearby_shift14',
-                    # 'CBOT.ZC_Settle_nearby_shift15', 'CBOT.ZC_Settle_nearby_shift16',
-                    # 'CBOT.ZC_Settle_nearby_shift17', 'CBOT.ZC_Settle_nearby_shift18',
-                    # 'CBOT.ZC_Settle_nearby_shift19', 'CBOT.ZC_Settle_nearby_shift20',
-                    # 'CBOT.ZC_Settle_nearby_shift21', 'CBOT.ZC_Settle_nearby_shift22',
-                    # 'CBOT.ZC_Settle_nearby_shift23', 'CBOT.ZC_Settle_nearby_shift24',
-                    # 'CBOT.ZC_Settle_nearby_shift25', 'CBOT.ZC_Settle_nearby_shift26',
-                    # 'CBOT.ZC_Settle_nearby_shift27', 'CBOT.ZC_Settle_nearby_shift28',
-                    # 'CBOT.ZC_Settle_nearby_shift29', 'CBOT.ZC_Settle_nearby_shift30',
+                    'CBOT.ZC_Settle_nearby_shift1', 'CBOT.ZC_Settle_nearby_shift2',
+                    'CBOT.ZC_Settle_nearby_shift3', 'CBOT.ZC_Settle_nearby_shift4',
+                    'CBOT.ZC_Settle_nearby_shift5', 'CBOT.ZC_Settle_nearby_shift6',
+                    'CBOT.ZC_Settle_nearby_shift7', 'CBOT.ZC_Settle_nearby_shift8',
+                    'CBOT.ZC_Settle_nearby_shift9', 'CBOT.ZC_Settle_nearby_shift10',
+                    'CBOT.ZC_Settle_nearby_shift11', 'CBOT.ZC_Settle_nearby_shift12',
+                    'CBOT.ZC_Settle_nearby_shift13', 'CBOT.ZC_Settle_nearby_shift14',
+                    'CBOT.ZC_Settle_nearby_shift15', 'CBOT.ZC_Settle_nearby_shift16',
+                    'CBOT.ZC_Settle_nearby_shift17', 'CBOT.ZC_Settle_nearby_shift18',
+                    'CBOT.ZC_Settle_nearby_shift19', 'CBOT.ZC_Settle_nearby_shift20',
+                    'CBOT.ZC_Settle_nearby_shift21', 'CBOT.ZC_Settle_nearby_shift22',
+                    'CBOT.ZC_Settle_nearby_shift23', 'CBOT.ZC_Settle_nearby_shift24',
+                    'CBOT.ZC_Settle_nearby_shift25', 'CBOT.ZC_Settle_nearby_shift26',
+                    'CBOT.ZC_Settle_nearby_shift27', 'CBOT.ZC_Settle_nearby_shift28',
+                    'CBOT.ZC_Settle_nearby_shift29', 'CBOT.ZC_Settle_nearby_shift30',
                     # 'CBOT.ZC_Settle_nearby_shift31', 'CBOT.ZC_Settle_nearby_shift32',
                     # 'CBOT.ZC_Settle_nearby_shift33', 'CBOT.ZC_Settle_nearby_shift34',
                     # 'CBOT.ZC_Settle_nearby_shift35', 'CBOT.ZC_Settle_nearby_shift36',
@@ -103,7 +103,7 @@ class ConfigDL(object):
                 ],
                 category=[
                     # 'Month'
-                    'Plantation', 'Pollination', 'Harvest'
+                    # 'Plantation', 'Pollination', 'Harvest'
                 ]
             ),
         ),
