@@ -288,7 +288,8 @@ class TrainDL(TrainML):
             best_train_assets,
             train_data, self.label,
             self.split_ratio,
-            self.config["evaluation"]["tsa"])
+            self.config["evaluation"]["tsa"],
+            exor_var=self.required_features_names)
 
         return None
 

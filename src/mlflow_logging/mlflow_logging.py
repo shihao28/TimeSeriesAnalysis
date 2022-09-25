@@ -86,7 +86,9 @@ class MlflowLogging:
 
         return None
 
-    def logging_dl(self, best_train_assets, train_data, label, split_ratio, eval_metrics):
+    def logging_dl(
+        self, best_train_assets, train_data, label, split_ratio, eval_metrics,
+        exor_var):
         # check f1 score with cls report
         best_train_pipeline = best_train_assets.get("train_pipeline")
         best_tsa_report, forecast_fig = best_train_assets.get("evaluation_assets")
@@ -96,6 +98,7 @@ class MlflowLogging:
             mlflow.log_param('target_variable', label)
             mlflow.log_param('split_ratio', split_ratio)
             mlflow.log_param('eval_metrics', eval_metrics)
+            mlflow.log_param('exor_var', exor_var)
 
             mlflow.log_metrics(best_tsa_report)
 

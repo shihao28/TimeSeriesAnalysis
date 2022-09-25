@@ -46,7 +46,7 @@ class ConfigDL(object):
             },
 
             # insert missing date and ffill it
-            ffill_missing_date=False
+            ffill_missing_date=True
         ),
 
         train_val_test_split=dict(
@@ -62,7 +62,7 @@ class ConfigDL(object):
         model_setting=dict(
             # whether to scale data
             scale=True,
-            n_steps_in=30,
+            n_steps_in=30,  # 30, 60, 90
             n_steps_out=10,
             # Set it to empty list if no exog_var
             exog_var=dict(
@@ -94,7 +94,7 @@ class ConfigDL(object):
 
         criterion=nn.MSELoss(),
 
-        epochs=1,
+        epochs=50,
 
         batch_size=64,
 
