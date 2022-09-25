@@ -11,7 +11,7 @@ class RNN(nn.Module):
         # elif isinstance(hidden_dim, list) and len(hidden_dim) != rnn_unit_count:
         #     logging.info('length of hidden_dim is not equal to rnn_unit_count')
         #     hidden_dim = [hidden_dim[0]] * rnn_unit_count
-        self.ln = nn.LayerNorm(in_dim)
+        # self.ln = nn.LayerNorm(in_dim)
         self.lstm = nn.LSTM(
             input_size=in_dim, hidden_size=hidden_dim,
             num_layers=num_layers, batch_first=True,
@@ -25,7 +25,7 @@ class RNN(nn.Module):
         self.fc = nn.Linear(hidden_dim, n_out)
 
     def forward(self, x):
-        x = self.ln(x)
+        # x = self.ln(x)
         output, (hidden_state, cell_state) = self.lstm(x)
         output = output.transpose(1, 2)
         output = nn.ReLU()(output)
