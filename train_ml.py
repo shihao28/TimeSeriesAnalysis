@@ -98,7 +98,6 @@ class TrainML:
         self.data.loc[(self.data['Month'] >= 3) & (self.data['Month'] <= 5), 'Plantation'] = 1
         self.data.loc[(self.data['Month'] >= 6) & (self.data['Month'] <= 7), 'Pollination'] = 1
         self.data.loc[(self.data['Month'] >= 9) & (self.data['Month'] <= 10), 'Harvest'] = 1
-        
 
         return None
 
@@ -174,7 +173,8 @@ class TrainML:
             best_train_assets,
             train_data, self.label,
             self.split_ratio,
-            self.config["evaluation"]["tsa"])
+            self.config["evaluation"]["tsa"],
+            exog_var=self.config['model']['exog_var'])
 
         return None
 

@@ -230,15 +230,18 @@ class EDA:
             ax=yearwise_ax[1])
 
         # Additive Decomposition
-        # result_add = seasonal_decompose(
-        #     self.data[self.label], model='additive', extrapolate_trend='freq')
-        # # Multiplicative Decomposition
-        # result_mul = seasonal_decompose(
-        #     self.data[self.label], model='multiplicative',
-        #     extrapolate_trend='freq')
-        # # Plot
-        # result_add.plot().suptitle('Additive Decompose')
-        # result_mul.plot().suptitle('Multiplicative Decompose')
+        try:
+            result_add = seasonal_decompose(
+                self.data[self.label], model='additive', extrapolate_trend='freq')
+            # Multiplicative Decomposition
+            result_mul = seasonal_decompose(
+                self.data[self.label], model='multiplicative',
+                extrapolate_trend='freq')
+            # Plot
+            result_add.plot().suptitle('Additive Decompose')
+            result_mul.plot().suptitle('Multiplicative Decompose')
+        except Exception:
+            pass
 
         # lag plot
         lag_fig, lag_ax = plt.subplots(1, 4)
@@ -275,8 +278,8 @@ class EDA:
         acf_50 = acf(diff_data, nlags=None)
         pacf_50 = pacf(diff_data, nlags=None)
         cf_fig, cf_ax = plt.subplots(1, 2)
-        plot_acf(diff_data, lags=None, ax=cf_ax[0], title=f'd={lag}')
-        plot_pacf(diff_data, lags=None, ax=cf_ax[1], title=f'd={lag}')
+        plot_acf(diff_data, lags=50, ax=cf_ax[0], title=f'ACF, d={lag}')
+        plot_pacf(diff_data, lags=50, ax=cf_ax[1], title=f'PACF, d={lag}')
 
         return diff_data
 
