@@ -100,7 +100,9 @@ class TrainML:
 
         # Smoothing
         # self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].rolling(14).mean()
-        self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].ewm(span=14, adjust=True).mean()
+        self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].ewm(span=30, adjust=True).mean()
+
+        self.data.dropna(axis=0, inplace=True)
 
         return None
 
