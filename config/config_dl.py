@@ -56,7 +56,7 @@ class ConfigDL(object):
         model={
             # n_out in model =n_steps_out
             RNN.__name__: RNN(
-                in_dim=32, hidden_dim=128, num_layers=1, n_out=10),
+                in_dim=3, hidden_dim=64, num_layers=1, n_out=10),
         },
 
         model_setting=dict(
@@ -70,21 +70,21 @@ class ConfigDL(object):
                     # 'Week_no_sin', 'Week_no_cos',
                     'Month_sin', 'Month_cos',
                     'CBOT.ZC_Settle_nearby_shift1', 
-                    'CBOT.ZC_Settle_nearby_shift2',
-                    'CBOT.ZC_Settle_nearby_shift3', 'CBOT.ZC_Settle_nearby_shift4',
-                    'CBOT.ZC_Settle_nearby_shift5', 'CBOT.ZC_Settle_nearby_shift6',
-                    'CBOT.ZC_Settle_nearby_shift7', 'CBOT.ZC_Settle_nearby_shift8',
-                    'CBOT.ZC_Settle_nearby_shift9', 'CBOT.ZC_Settle_nearby_shift10',
-                    'CBOT.ZC_Settle_nearby_shift11', 'CBOT.ZC_Settle_nearby_shift12',
-                    'CBOT.ZC_Settle_nearby_shift13', 'CBOT.ZC_Settle_nearby_shift14',
-                    'CBOT.ZC_Settle_nearby_shift15', 'CBOT.ZC_Settle_nearby_shift16',
-                    'CBOT.ZC_Settle_nearby_shift17', 'CBOT.ZC_Settle_nearby_shift18',
-                    'CBOT.ZC_Settle_nearby_shift19', 'CBOT.ZC_Settle_nearby_shift20',
-                    'CBOT.ZC_Settle_nearby_shift21', 'CBOT.ZC_Settle_nearby_shift22',
-                    'CBOT.ZC_Settle_nearby_shift23', 'CBOT.ZC_Settle_nearby_shift24',
-                    'CBOT.ZC_Settle_nearby_shift25', 'CBOT.ZC_Settle_nearby_shift26',
-                    'CBOT.ZC_Settle_nearby_shift27', 'CBOT.ZC_Settle_nearby_shift28',
-                    'CBOT.ZC_Settle_nearby_shift29', 'CBOT.ZC_Settle_nearby_shift30',
+                    # 'CBOT.ZC_Settle_nearby_shift2',
+                    # 'CBOT.ZC_Settle_nearby_shift3', 'CBOT.ZC_Settle_nearby_shift4',
+                    # 'CBOT.ZC_Settle_nearby_shift5', 'CBOT.ZC_Settle_nearby_shift6',
+                    # 'CBOT.ZC_Settle_nearby_shift7', 'CBOT.ZC_Settle_nearby_shift8',
+                    # 'CBOT.ZC_Settle_nearby_shift9', 'CBOT.ZC_Settle_nearby_shift10',
+                    # 'CBOT.ZC_Settle_nearby_shift11', 'CBOT.ZC_Settle_nearby_shift12',
+                    # 'CBOT.ZC_Settle_nearby_shift13', 'CBOT.ZC_Settle_nearby_shift14',
+                    # 'CBOT.ZC_Settle_nearby_shift15', 'CBOT.ZC_Settle_nearby_shift16',
+                    # 'CBOT.ZC_Settle_nearby_shift17', 'CBOT.ZC_Settle_nearby_shift18',
+                    # 'CBOT.ZC_Settle_nearby_shift19', 'CBOT.ZC_Settle_nearby_shift20',
+                    # 'CBOT.ZC_Settle_nearby_shift21', 'CBOT.ZC_Settle_nearby_shift22',
+                    # 'CBOT.ZC_Settle_nearby_shift23', 'CBOT.ZC_Settle_nearby_shift24',
+                    # 'CBOT.ZC_Settle_nearby_shift25', 'CBOT.ZC_Settle_nearby_shift26',
+                    # 'CBOT.ZC_Settle_nearby_shift27', 'CBOT.ZC_Settle_nearby_shift28',
+                    # 'CBOT.ZC_Settle_nearby_shift29', 'CBOT.ZC_Settle_nearby_shift30',
                 ],
                 category=[
                     # 'Month'
@@ -94,7 +94,7 @@ class ConfigDL(object):
 
         criterion=nn.MSELoss(),
 
-        epochs=50,
+        epochs=1,
 
         batch_size=64,
 
@@ -127,9 +127,9 @@ class ConfigDL(object):
             tracking_uri="http://127.0.0.1",
             backend_uri="sqlite:///mlflow.db",
             artifact_uri="./mlruns/",
-            experiment_name="Best Pipeline",
+            experiment_name="Best Time Series Pipeline",
             run_name="trial",
-            registered_model_name="my_tsa_model",
+            registered_model_name="my_tsa_model_dl",
             port="5000",
         ),
 

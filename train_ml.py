@@ -176,6 +176,8 @@ class TrainML:
             self.split_ratio,
             self.config["evaluation"]["tsa"])
 
+        return None
+
     def train(self):
         self._preprocessing()
 
