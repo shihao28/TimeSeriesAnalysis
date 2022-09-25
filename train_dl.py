@@ -230,7 +230,7 @@ class TrainDL(TrainML):
                 forecasts_all, preprocessing_pipeline)
             tsa_report = self.eval(
                 y_true=y_true, y_pred=y_pred, fitted_values=fitted_values)
-
+            tsa_report[1].savefig('haha.jpg')
         return forecasts_all, val_epoch_loss.avg
 
     def _inversetransform_meanagg(self, fitted_values, preprocessing_pipeline):
@@ -257,11 +257,13 @@ class TrainDL(TrainML):
         fitted_values_new = pd.DataFrame()
         for i in range(len(fitted_values)):
             fitted_values_tmp = pd.DataFrame(fitted_values[i, :-1])
-            fitted_values_tmp['date'] = pd.date_range(
+            date_range = pd.date_range(
                     start=self.data.index[
                         int(fitted_values[i,-1])-self.config['model_setting']['n_steps_out']+1],
                     end=self.data.index[int(fitted_values[i,-1])]
                 )
+            # avoid error when ffill_date = False
+            fitted_values_tmp['date'] = date_range[date_range.isin(self.data.index)]
             fitted_values_new = pd.concat([fitted_values_new, fitted_values_tmp], 0)
         fitted_values = fitted_values_new.groupby('date').agg('mean')
 
