@@ -3,7 +3,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 from statsmodels.tsa.seasonal import seasonal_decompose
-from statsmodels.tsa.stattools import adfuller, acf, pacf, grangercausalitytests
+from statsmodels.tsa.stattools import adfuller, acf, pacf, grangercausalitytests, kpss
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from pandas.plotting import lag_plot
 import numpy as np
@@ -219,6 +219,12 @@ class EDA:
         overall_ax.set(
             xlabel='Datetime', ylabel=self.label,
             title=f"Plot of {self.label}")
+        # self.data[['CBOT.ZS_Settle_nearby', 'CBOT.ZC_Settle_nearby']].plot(legend=True, title='Soybean and Corn Prices')
+        # plt.tight_layout()
+        # corr = self.data[['CBOT.ZS_Settle_nearby', 'CBOT.ZC_Settle_nearby']].corr().iloc[0, 1]
+        # ax = sns.regplot(data=self.data, x='CBOT.ZS_Settle_nearby', y='CBOT.ZC_Settle_nearby')
+        # ax.set(title='Corn aginst Soybean')
+        # ax.text(1500, 520, f'Corr. Coef.: {corr:.2f}')
 
         # Plot by year
         yearwise_fig, yearwise_ax = plt.subplots(1, 2)
@@ -228,6 +234,12 @@ class EDA:
         sns.boxplot(
             data=self.data, x='Month', y=self.label, hue='Year',
             ax=yearwise_ax[1])
+        # sns.boxplot(
+        #     data=self.data, x='Month', y='CBOT.ZS_Settle_nearby', hue='Year',
+        #     ax=yearwise_ax[0]).set_title('Soybean')
+        # sns.boxplot(
+        #     data=self.data, x='Month', y='CBOT.ZC_Settle_nearby', hue='Year',
+        #     ax=yearwise_ax[1]).set_title('Corn')
 
         # Additive Decomposition
         try:
@@ -250,6 +262,13 @@ class EDA:
             ax.set_title('Lag ' + str(i+1))
         lag_fig.suptitle(f'Lag Plot of {self.label}')
 
+        # corr plot
+        corr_matrix = self.data.corr()
+        mask = np.triu(corr_matrix)
+        sns.heatmap(corr_matrix, mask=mask, annot=False, cmap='jet').set_title(
+            'Soybean Futures Corr Plot')
+        plt.tight_layout()
+
         return None
 
     def _get_arima_order(self):
@@ -258,6 +277,7 @@ class EDA:
         diff_pvalues = dict()
         lag = 0
         while True:
+            # kpss_stat, pvalue, _, _ = kpss(diff_data, regression="c", nlags="auto")
             adf_stat, pvalue, _, _, _, _ = adfuller(diff_data)
             diff_pvalues[lag] = pvalue
             if pvalue < 0.05:
@@ -311,7 +331,7 @@ class EDA:
         suggested_lag = dict()
         for column_name in self.numeric_features_names + self.category_features_names:
             granger_causality_pvalue[column_name] = grangercausalitytests(
-                diff_data[[self.label, column_name]], maxlag=maxlag)
+                diff_data[[self.label, column_name]], maxlag=maxlag, verbose=False)
 
             pvalues = []
             for maxlag_tmp in range(1, maxlag+1):

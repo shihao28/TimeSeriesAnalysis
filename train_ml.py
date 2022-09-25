@@ -100,7 +100,7 @@ class TrainML:
 
         # Smoothing
         # self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].rolling(14).mean()
-        self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].ewm(span=30, adjust=True).mean()
+        # self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].ewm(span=30, adjust=True).mean()
 
         self.data.dropna(axis=0, inplace=True)
 
@@ -208,7 +208,7 @@ class TrainML:
         train_assets = dict()
         model = auto_arima(
             y=train_data[self.label],
-            X=train_exor_var,
+            X=train_exor_var, test='adf',
             start_p=self.config['model']['start_p'],
             start_q=self.config['model']['start_q'],
             max_p=self.config['model']['max_p'],

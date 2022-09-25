@@ -20,7 +20,7 @@ class ConfigML(object):
             ],
             category_features=[
                 # 'Year',
-                'Month', 
+                'Month',
                 'Day',
                 'Day_of_week',
                 'Week_no',
