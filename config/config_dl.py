@@ -52,14 +52,16 @@ class ConfigDL(object):
 
         model={
             # n_out in model =n_steps_out
-            RNN.__name__: RNN(4, 64, 1, 1),
+            RNN.__name__: RNN(4, 64, 30, 10),
         },
 
-        model_setting={
-            "n_steps_in": 40,
-            "n_steps_out": 1,
+        model_setting=dict(
+            # whether to scale data
+            scale=True,
+            n_steps_in=30,
+            n_steps_out=10,
             # Set it to empty list if no exog_var
-            "exog_var": dict(
+            exog_var=dict(
                 numeric=[
                     'Month_sin', 'Month_cos',
                     'CBOT.ZC_Settle_nearby_shift1'
@@ -68,7 +70,7 @@ class ConfigDL(object):
                     'Month'
                 ]
             ),
-        },
+        ),
 
         criterion=nn.MSELoss(),
 
