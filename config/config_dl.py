@@ -56,7 +56,7 @@ class ConfigDL(object):
         model={
             # n_out in model =n_steps_out
             RNN.__name__: RNN(
-                in_dim=3, hidden_dim=64, num_layers=1, n_out=10),
+                in_dim=5, hidden_dim=64, num_layers=1, n_out=10),
         },
 
         model_setting=dict(
@@ -69,8 +69,7 @@ class ConfigDL(object):
                 numeric=[
                     # 'Week_no_sin', 'Week_no_cos',
                     'Month_sin', 'Month_cos',
-                    'CBOT.ZC_Settle_nearby_shift1', 
-                    # 'CBOT.ZC_Settle_nearby_shift2',
+                    # 'CBOT.ZC_Settle_nearby_shift1', 'CBOT.ZC_Settle_nearby_shift2',
                     # 'CBOT.ZC_Settle_nearby_shift3', 'CBOT.ZC_Settle_nearby_shift4',
                     # 'CBOT.ZC_Settle_nearby_shift5', 'CBOT.ZC_Settle_nearby_shift6',
                     # 'CBOT.ZC_Settle_nearby_shift7', 'CBOT.ZC_Settle_nearby_shift8',
@@ -85,9 +84,26 @@ class ConfigDL(object):
                     # 'CBOT.ZC_Settle_nearby_shift25', 'CBOT.ZC_Settle_nearby_shift26',
                     # 'CBOT.ZC_Settle_nearby_shift27', 'CBOT.ZC_Settle_nearby_shift28',
                     # 'CBOT.ZC_Settle_nearby_shift29', 'CBOT.ZC_Settle_nearby_shift30',
+                    # 'CBOT.ZC_Settle_nearby_shift31', 'CBOT.ZC_Settle_nearby_shift32',
+                    # 'CBOT.ZC_Settle_nearby_shift33', 'CBOT.ZC_Settle_nearby_shift34',
+                    # 'CBOT.ZC_Settle_nearby_shift35', 'CBOT.ZC_Settle_nearby_shift36',
+                    # 'CBOT.ZC_Settle_nearby_shift37', 'CBOT.ZC_Settle_nearby_shift38',
+                    # 'CBOT.ZC_Settle_nearby_shift39', 'CBOT.ZC_Settle_nearby_shift40',
+                    # 'CBOT.ZC_Settle_nearby_shift41', 'CBOT.ZC_Settle_nearby_shift42',
+                    # 'CBOT.ZC_Settle_nearby_shift43', 'CBOT.ZC_Settle_nearby_shift44',
+                    # 'CBOT.ZC_Settle_nearby_shift45', 'CBOT.ZC_Settle_nearby_shift46',
+                    # 'CBOT.ZC_Settle_nearby_shift47', 'CBOT.ZC_Settle_nearby_shift48',
+                    # 'CBOT.ZC_Settle_nearby_shift49', 'CBOT.ZC_Settle_nearby_shift50',
+                    # 'CBOT.ZC_Settle_nearby_shift51', 'CBOT.ZC_Settle_nearby_shift52',
+                    # 'CBOT.ZC_Settle_nearby_shift53', 'CBOT.ZC_Settle_nearby_shift54',
+                    # 'CBOT.ZC_Settle_nearby_shift55', 'CBOT.ZC_Settle_nearby_shift56',
+                    # 'CBOT.ZC_Settle_nearby_shift57', 'CBOT.ZC_Settle_nearby_shift58',
+                    # 'CBOT.ZC_Settle_nearby_shift59', 'CBOT.ZC_Settle_nearby_shift60',
+                   
                 ],
                 category=[
                     # 'Month'
+                    'Plantation', 'Pollination', 'Harvest'
                 ]
             ),
         ),

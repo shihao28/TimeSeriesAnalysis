@@ -233,7 +233,7 @@ class TrainDL(TrainML):
                 forecasts_all, preprocessing_pipeline)
             tsa_report = self.eval(
                 y_true=y_true, y_pred=y_pred, fitted_values=fitted_values)
-            tsa_report[1].savefig('haha.jpg')
+
         return forecasts_all, val_epoch_loss.avg, tsa_report
 
     def _inversetransform_meanagg(self, fitted_values, preprocessing_pipeline):
