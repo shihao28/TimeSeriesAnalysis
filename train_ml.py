@@ -91,13 +91,16 @@ class TrainML:
                 new_feature_name = f'{feature_name}_shift{lag}'
                 self.data[new_feature_name] = self.data[feature_name].shift(lag)
                 self.shifted_category_features_names.append(new_feature_name)
-        self.data.dropna(axis=0, inplace=True)
 
         # Add plantation phase
         self.data[['Plantation', 'Pollination', 'Harvest']] = 0
         self.data.loc[(self.data['Month'] >= 3) & (self.data['Month'] <= 5), 'Plantation'] = 1
         self.data.loc[(self.data['Month'] >= 6) & (self.data['Month'] <= 7), 'Pollination'] = 1
         self.data.loc[(self.data['Month'] >= 9) & (self.data['Month'] <= 10), 'Harvest'] = 1
+
+        # Smoothing
+        # self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].rolling(14).mean()
+        self.data['CBOT.ZS_Settle_nearby'] = self.data['CBOT.ZS_Settle_nearby'].ewm(span=14, adjust=True).mean()
 
         return None
 
